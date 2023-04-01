@@ -39,7 +39,7 @@ services:
         condition: service_started
     links:
       - redis
-    command: bash -c "celery -A config worker --beat --scheduler django --loglevel=info"
+    command: bash -c "celery -A djangoProject worker --beat --scheduler django --loglevel=info"
 
 
   api:
@@ -61,7 +61,7 @@ services:
       redis:
         condition: service_healthy
     command: bash -c "python manage.py migrate & python manage.py collectstatic --noinput &
-      gunicorn config.wsgi --bind 0.0.0.0:8000 --workers 3 --threads 3"
+      gunicorn --access-logfile - --workers 3 --bind 0.0.0.0:8000
 
   nginx:
     restart: always

@@ -9,3 +9,5 @@ Pillow==9.0.1
 psycopg2-binary==2.9.5
 redis==4.5.1
 gunicorn
+python-dotenv
+telebot
