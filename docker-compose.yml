@@ -33,9 +33,9 @@ services:
     build: .
     restart: unless-stopped
     depends_on:
-      broker:
+      redis:
         condition: service_healthy
-      app:
+      api:
         condition: service_started
     links:
       - redis
