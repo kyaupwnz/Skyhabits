@@ -1,0 +1,84 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres
+    environment:
+      POSTGRES_USER: ${USER_DB}
+      POSTGRES_PASSWORD: ${PASSWORD_DB}
+      POSTGRES_DB: ${NAME_DB}
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+
+
+  redis:
+    image: redis
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./djangoProject/redis:/usr/local/etc/redis
+  worker:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      broker:
+        condition: service_healthy
+      app:
+        condition: service_started
+    links:
+      - redis
+    command: bash -c "celery -A config worker --beat --scheduler django --loglevel=info"
+
+
+  api:
+    build:
+      context: .
+    environment:
+      - DEBUG=${DEBUG}
+      - SECRET_KEY=${SECRET_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    tty: false
+    volumes:
+      - .:/code
+    restart: on-failure
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: bash -c "python manage.py migrate & python manage.py collectstatic --noinput &
+      gunicorn config.wsgi --bind 0.0.0.0:8000 --workers 3 --threads 3"
+
+  nginx:
+    restart: always
+    image: nginx:1.23-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./static/:/code/static
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  api:
+  redis:
+    driver: local
+  worker:
+  db:
+    driver: local
